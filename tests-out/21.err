@@ -1,1 +1,0 @@
-../tester/run-tests.sh: line 27:  9207 Segmentation fault      ./wish tests/21.in

@@ -14,6 +14,7 @@ int tryPath(char **parsed);
 void editPath(char **parsed);
 int find_redirection(char **parsed);
 int handle_redirection(char **parsed, int index);
+int find_redirection_no_spaces(char *string);
 
 char usable_path[100];
 char *path[50] = { NULL };

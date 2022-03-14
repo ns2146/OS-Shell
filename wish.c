@@ -9,7 +9,7 @@
 
 void commander(char *arg, char **parsed);
 int parser(char *input, char** output);
-int runBuiltin(char **input, int input_file);
+int runBuiltin(char **input);
 int tryPath(char **parsed);
 void editPath(char **parsed);
 int find_redirection(char **parsed);
@@ -18,6 +18,7 @@ int handle_redirection(char **parsed, int index);
 char usable_path[100];
 char *path[50] = { NULL };
 char *output;
+FILE *destination = NULL;
 
 int main(int argc, char *argv[]) {
     int currentLine = 1;
@@ -53,14 +54,12 @@ int main(int argc, char *argv[]) {
 void commander (char *arg, char **parsed) {
     int length = parser(arg, parsed);
     int index_p = find_redirection(parsed);
-    int input_file = 0;
 
     if (index_p > 0) {
         //redirection shenanigans
-        if (handle_redirection(parsed, index_p) == 1) {
-            //we have a redirection and need to use the output file
-            output = parsed[index_p + 1];
-            input_file = open(output, O_RDWR);
+        int handle = handle_redirection(parsed, index_p);
+        if (handle == -1) {
+            return;
         }
     }
     
@@ -83,13 +82,13 @@ void commander (char *arg, char **parsed) {
         printf("%s\n", directory);
     } else if ( strncmp(parsed[0], "ls", 2) == 0 ) {
         if (tryPath(parsed) == 1) {
-            runBuiltin(parsed, input_file);
+            runBuiltin(parsed);
         } else {
             fprintf(stderr, "An error has occurred\n");
         }
     } else {
         if (tryPath(parsed)) {
-            runBuiltin(parsed, input_file);
+            runBuiltin(parsed);
         } else {
             fprintf(stderr, "An error has occurred\n");
         }
@@ -112,7 +111,7 @@ int parser(char *input, char **output) {
     return i;
 }
 
-int runBuiltin(char **input, int input_file) {
+int runBuiltin(char **input) {
     int rc = fork();
 
     if (rc < 0) {
@@ -120,8 +119,10 @@ int runBuiltin(char **input, int input_file) {
         return 0;
     } else if (rc == 0) {
         //in child
-        if (input_file > 0) {
-            dup2(input_file, STDIN_FILENO);//this is running ls > and breaking stuff I think
+        if (destination) {
+            int destination_file_no = fileno(destination);
+            dup2(destination_file_no, 1);
+            dup2(destination_file_no, 2);
         } 
         execv(usable_path, input);
         exit(-1);
@@ -210,12 +211,27 @@ int handle_redirection(char **parsed, int index) {
     if (parsed[index + 1] == NULL) {
         //no output file given
         fprintf(stderr, "An error has occurred\n");
+        return -1;
     } else if (parsed[index + 2] != NULL) {
         //extra output file given
         fprintf(stderr, "An error has occurred\n");
+        return -1;
     } else {
         //we have a theoretical output file
+
+        if ((destination = fopen(parsed[index + 1], "w")) == NULL) {
+            fprintf(stderr, "An error has occurred");
+            return 0;
+        }
+
+        memset(&parsed[index], 0, 2);
+        parsed[index] = NULL;
+        
         return 1;
     }
     return 0;
+}
+
+int find_redirection_no_spaces() {
+    
 }

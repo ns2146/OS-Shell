@@ -1,0 +1,10 @@
+Makefile
+README.md
+metadata.yml
+something
+test-wish.sh
+tests
+tests-out
+wish
+wish.c
+wish.o

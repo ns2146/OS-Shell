@@ -32,14 +32,19 @@ int main(int argc, char *argv[]) {
             printf("wish>");
             fgets(str, 100, stdin);
 
-            commander(str, parsed);
+            if (strncmp(str, "\n", 1) != 0) {
+                commander(str, parsed);
+            } 
         }
-    } else {
+    } else if (argc == 2) {
         //BATCH MODE
         char str[100];
         FILE *fp;
 
-        fp = fopen(argv[1], "r");
+        if ( (fp = fopen(argv[1], "r")) == NULL ) {
+            fprintf(stderr, "An error has occurred\n");
+            return 1;
+        }
 
         while (fgets(str, 100, fp) != NULL) {
             //printf("Line%d: %s", currentLine, str);
@@ -48,11 +53,19 @@ int main(int argc, char *argv[]) {
         }
         
         fclose(fp);
+    } else {
+        fprintf(stderr, "An error has occurred\n");
+        return 1;
     }
 }
 
 void commander (char *arg, char **parsed) {
     int length = parser(arg, parsed);
+
+    if (length == 0) {
+        return;
+    }
+
     int index_p = find_redirection(parsed);
 
     if (index_p > 0) {
@@ -86,6 +99,12 @@ void commander (char *arg, char **parsed) {
         } else {
             fprintf(stderr, "An error has occurred\n");
         }
+    } else if ( strncmp(parsed[0], "cat", 3) == 0 ) {
+        if (tryPath(parsed) == 1) {
+            runBuiltin(parsed);
+        } else {
+            fprintf(stderr, "An error has occurred\n");
+        }
     } else {
         if (tryPath(parsed)) {
             runBuiltin(parsed);
@@ -99,11 +118,29 @@ void commander (char *arg, char **parsed) {
 int parser(char *input, char **output) {
 
     char *found;
+    char *found_redirect;
 
     int i = 0;
     while ( (found = strsep(&input, " \n")) != NULL ) {
         if (strlen(found) > 0) {
-            output[i] = found;
+
+            int index = find_redirection_no_spaces(found);
+            if (index != -1) {
+                //we have a redirection at index
+                found_redirect = strsep(&found, ">");
+                char *dest = strsep(&found, ">");
+                
+                output[i] = found_redirect;
+                
+                i++;
+                char *temp = ">";
+                output[i] = temp;
+                
+                i++;
+                output[i] = dest;
+            } else {
+                output[i] = found;
+            }
             i++;
         }
     }
@@ -129,7 +166,14 @@ int runBuiltin(char **input) {
     } else {
         //in parent
         //rc = child's id
+        //need to close parent
         wait(NULL);
+
+        if (destination) {
+            fclose(destination);
+            destination = NULL;
+        } 
+
         return 0;
     }
     return 1;
@@ -232,6 +276,17 @@ int handle_redirection(char **parsed, int index) {
     return 0;
 }
 
-int find_redirection_no_spaces() {
-    
+int find_redirection_no_spaces(char *string) {
+    int length = strlen(string);
+
+    if (length == 1) {
+        return -1;
+    }
+
+    for (int i = 0; i < length; i++) {
+        if (string[i] == '>') {
+            return i;
+        }
+    }
+    return -1;
 }

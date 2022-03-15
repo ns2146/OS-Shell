@@ -7,24 +7,28 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-void commander(char *arg, char **parsed);
+void commander(char *arg, char **parsed, char **path, int path_size);
 int parser(char *input, char** output);
 int runBuiltin(char **input);
-int tryPath(char **parsed);
-void editPath(char **parsed);
+int tryPath(char **parsed, char **path, int path_size);
+void editPath(char **parsed, char **path, int path_size);
 int find_redirection(char **parsed);
 int handle_redirection(char **parsed, int index);
 int find_redirection_no_spaces(char *string);
 
 char usable_path[100];
-char *path[50] = { NULL };
 char *output;
 FILE *destination = NULL;
 
 int main(int argc, char *argv[]) {
+    char **path;
+    int path_size = 0;
     int currentLine = 1;
-    char *parsed[150] = { NULL };
-    path[0] = "/bin"; //initialize first path to bin
+    char **parsed = malloc(100 * sizeof(char*));
+    path = malloc(100 * sizeof(char*));
+    path[0] = "/bin";
+    path_size = 1;
+    
 
     if (argc == 1) {
         //INTERACTIVE MODE
@@ -34,8 +38,9 @@ int main(int argc, char *argv[]) {
             fgets(str, 100, stdin);
 
             if (strncmp(str, "\n", 1) != 0) {
-                commander(str, parsed);
+                commander(str, parsed, path, path_size);
             } 
+            memset(parsed, 0, sizeof(parsed));
         }
     } else if (argc == 2) {
         //BATCH MODE
@@ -49,9 +54,10 @@ int main(int argc, char *argv[]) {
 
         while (fgets(str, 100, fp) != NULL) {
             //printf("Line%d: %s", currentLine, str);
-            commander(str, parsed);
+            commander(str, parsed, path, path_size);
             currentLine++;
         }
+        memset(parsed, 0, sizeof(parsed));
         
         fclose(fp);
     } else {
@@ -60,7 +66,7 @@ int main(int argc, char *argv[]) {
     }
 }
 
-void commander (char *arg, char **parsed) {
+void commander (char *arg, char **parsed, char **path, int path_size) {
     int length = parser(arg, parsed);
 
     if (length == 0) {
@@ -89,25 +95,25 @@ void commander (char *arg, char **parsed) {
         }
         exit(0);
     } else if ( strncmp(parsed[0], "path", 4 ) == 0 ) {
-        editPath(parsed);
+        editPath(parsed, path, path_size);
     } else if ( strncmp(parsed[0], "pwd", 3) == 0 ) {
         char directory[400];
         getcwd(directory, sizeof(directory));
         printf("%s\n", directory);
     } else if ( strncmp(parsed[0], "ls", 2) == 0 ) {
-        if (tryPath(parsed) == 1) {
+        if (tryPath(parsed, path, path_size) == 1) {
             runBuiltin(parsed);
         } else {
             fprintf(stderr, "An error has occurred\n");
         }
     } else if ( strncmp(parsed[0], "cat", 3) == 0 ) {
-        if (tryPath(parsed) == 1) {
+        if (tryPath(parsed, path, path_size) == 1) {
             runBuiltin(parsed);
         } else {
             fprintf(stderr, "An error has occurred\n");
         }
     } else {
-        if (tryPath(parsed)) {
+        if (tryPath(parsed, path, path_size)) {
             runBuiltin(parsed);
         } else {
             fprintf(stderr, "An error has occurred\n");
@@ -180,8 +186,8 @@ int runBuiltin(char **input) {
     return 1;
 }
 
-int tryPath(char **parsed) {
-    char test_path[500];
+int tryPath(char **parsed, char **path, int path_size) {
+    char test_path[100];
 
     //copy path and parsed to each item in test path
     int j = 0;
@@ -201,39 +207,17 @@ int tryPath(char **parsed) {
     return 0;
 }
 
-void editPath(char **parsed) {
-    //change path to whatever we got in parsed
-    //erase path
-    char *new_path[50] = { NULL };
+void editPath(char **parsed, char **path, int path_size) {
+    //use memset to clear path
+    memset(path, 0, path_size);
+    path_size = 0;
 
-    int i = 0;
-    while (path[i] != NULL) {
-        path[i] = new_path[i];
+    int i = 1;
+    while (parsed[i] != NULL) {
+        path[i - 1] = malloc((strlen(parsed[i]) + 1) * sizeof(char));
+        path[i - 1] = parsed[i];
+        path_size++;
         i++;
-    }
-
-    //check if were given a / or not 
-    if (strncmp(parsed[0], "/", 1) == 0) {
-        //set the path directly
-        int j = 1;
-        while (parsed[j] != NULL) {
-            path[j - 1] = "/";
-            strcat(path[j - 1], parsed[j]); //this might break who knows
-            j++;
-        }
-    } else {
-        //add current directory/whatever
-        char this_dir[256];
-
-        getcwd(this_dir, sizeof(this_dir));
-
-        int j = 1;
-        while (parsed[j] != NULL) {
-            path[j - 1] = this_dir;
-            strcat(path[j - 1], "/");
-            strcat(path[j - 1], parsed[j]); //this might break who knows
-            j++;
-        }
     }
 }
 

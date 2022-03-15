@@ -16,7 +16,7 @@ int find_redirection(char **parsed);
 int handle_redirection(char **parsed, int index);
 int find_redirection_no_spaces(char *string);
 
-char usable_path[100];
+char *usable_path;
 char *output;
 FILE *destination = NULL;
 
@@ -24,16 +24,16 @@ int main(int argc, char *argv[]) {
     char **path;
     int path_size = 0;
     int currentLine = 1;
-    char **parsed = malloc(100 * sizeof(char*));
-    path = malloc(100 * sizeof(char*));
+    char **parsed = malloc(200 * sizeof(char*));
+    path = malloc(200 * sizeof(char*));
     path[0] = "/bin";
     path_size = 1;
-    
+    usable_path = malloc(200 * sizeof(char));
+    char *str = malloc(200 * sizeof(char));
 
     if (argc == 1) {
         //INTERACTIVE MODE
         while(1) {
-            char str[100];
             printf("wish>");
             fgets(str, 100, stdin);
 
@@ -44,7 +44,6 @@ int main(int argc, char *argv[]) {
         }
     } else if (argc == 2) {
         //BATCH MODE
-        char str[100];
         FILE *fp;
 
         if ( (fp = fopen(argv[1], "r")) == NULL ) {
@@ -107,9 +106,13 @@ void commander (char *arg, char **parsed, char **path, int path_size) {
             fprintf(stderr, "An error has occurred\n");
         }
     } else if ( strncmp(parsed[0], "cat", 3) == 0 ) {
-        if (tryPath(parsed, path, path_size) == 1) {
-            runBuiltin(parsed);
-        } else {
+        if (parsed[1] != NULL) {
+            if (tryPath(parsed, path, path_size) == 1) {
+                runBuiltin(parsed);
+            } else {
+                fprintf(stderr, "An error has occurred\n");
+            }
+        }  else {
             fprintf(stderr, "An error has occurred\n");
         }
     } else {
@@ -215,7 +218,7 @@ void editPath(char **parsed, char **path, int path_size) {
     int i = 1;
     while (parsed[i] != NULL) {
         path[i - 1] = malloc((strlen(parsed[i]) + 1) * sizeof(char));
-        path[i - 1] = parsed[i];
+        strcpy(path[i - 1], parsed[i]);
         path_size++;
         i++;
     }
